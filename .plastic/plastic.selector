@@ -1,0 +1,4 @@
+repository "Echo-s Inheritor 2025-11-13_14-39-50/Echo-s Inheritor@18968349165074@cloud"
+  path "/"
+    br "/main"
+    co "/main"
