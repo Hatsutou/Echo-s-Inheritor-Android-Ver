@@ -184832,7 +184832,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -161.14001}
+  m_AnchoredPosition: {x: 0, y: -161.14003}
   m_SizeDelta: {x: -408, y: -541.67}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1791619141230588068
@@ -191452,7 +191452,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -161.14001}
+  m_AnchoredPosition: {x: 0, y: -161.14003}
   m_SizeDelta: {x: -408, y: -541.67}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &4284257661075217175
@@ -198580,6 +198580,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 6286533944813194310, guid: 4fc2b59f304a63a4daed623ab6ac8aa6, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7364217353394181753, guid: 4fc2b59f304a63a4daed623ab6ac8aa6, type: 3}
       propertyPath: staminaRegenRate
       value: 25
@@ -199091,7 +199095,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -161.14001}
+  m_AnchoredPosition: {x: 0, y: -161.14003}
   m_SizeDelta: {x: -408, y: -541.67}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!224 &6786675973761632335
@@ -206331,7 +206335,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -161.14001}
+  m_AnchoredPosition: {x: 0, y: -161.14003}
   m_SizeDelta: {x: -408, y: -541.67}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &9034619816067190809
