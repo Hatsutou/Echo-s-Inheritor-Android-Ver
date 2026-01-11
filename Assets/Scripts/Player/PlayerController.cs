@@ -363,6 +363,11 @@ public class PlayerController : MonoBehaviour
             return; // Ngắt toàn bộ logic bên dưới (không chạy, không nhảy, không đánh)
         }
 
+        // --- [SỬA 1] KHAI BÁO BIẾN MOBILE CHUNG TẠI ĐÂY ---
+        // Khai báo 1 lần dùng cho cả hàm, không cần khai báo lại bên dưới nữa
+        bool mobileJump = (MobileInputManager.Instance != null && MobileInputManager.Instance.jumpPressed);
+        float mobileX = (MobileInputManager.Instance != null) ? MobileInputManager.Instance.moveX : 0;
+
         // --- [MỚI] KIỂM TRA MENU ---
         // Biến này sẽ = true nếu Menu đang mở -> Ta dùng nó để chặn hành động
         bool isMenuBlocked = (PauseMenuController.Instance != null && PauseMenuController.Instance.isMenuOpen);
@@ -472,11 +477,13 @@ public class PlayerController : MonoBehaviour
         // 2. ƯU TIÊN SỐ 1: WALL JUMP (NHẢY TƯỜNG)
         // Phải đặt lên trên cùng để nó được ưu tiên hơn nhảy thường
         // =========================================================
-        if (isWallSliding && Input.GetKeyDown(KeyCode.Space))
+        // [MỚI] Lấy input nhảy từ Mobile
+
+        // Thêm || mobileJump vào điều kiện
+        if (isWallSliding && (Input.GetKeyDown(KeyCode.Space) || mobileJump))
         {
-            // Gọi hàm xử lý Wall Jump của bạn
             PerformWallJumpFromSlide(); 
-            return; // [QUAN TRỌNG] Thoát ngay để không chạy code di chuyển/nhảy đất bên dưới
+            return; 
         }
 
         // =========================================================
@@ -505,7 +512,19 @@ public class PlayerController : MonoBehaviour
         // Chỉ nhận Input khi KHÔNG bị khóa do Wall Jump
         if (!isAttacking && !isUsingItem && !isHurt && !isWallJumpLocked) 
         {
-            xInput = Input.GetAxisRaw("Horizontal");
+            if (isKnockedDown) 
+            {
+                horizontalInput = 0;
+            }
+            else 
+            {
+                // Khai báo biến keyboardX ngay tại đây để dùng luôn
+                float keyboardX = Input.GetAxisRaw("Horizontal");
+                
+                // mobileX đã có ở đầu hàm, lấy xuống dùng luôn
+                horizontalInput = keyboardX + mobileX;
+                horizontalInput = Mathf.Clamp(horizontalInput, -1f, 1f); 
+            }
         }
 
         // [QUAN TRỌNG] Thêm điều kiện: Không trượt tường mới được đi dốc
@@ -676,7 +695,9 @@ public class PlayerController : MonoBehaviour
         // --- XỬ LÝ ĐÁNH MẠNH (HEAVY ATTACK) ---
 
         // 1. KÍCH HOẠT TỤ (Ấn giữ chuột phải)
-        if (Input.GetMouseButtonDown(1) && !isMenuOpen && isGrounded && !isAttacking && !isRolling)
+        bool mobileHeavy = (MobileInputManager.Instance != null && MobileInputManager.Instance.heavyAttackPressed);
+        // Kích hoạt bằng Chuột Phải HOẶC Nút Mobile
+        if ((Input.GetMouseButtonDown(1) || mobileHeavy) && !isMenuOpen && isGrounded && !isAttacking && !isRolling)
         {
             // TRƯỜNG HỢP A: ĐANG TRONG THỜI GIAN COMBO -> CHUẨN BỊ GỒNG ĐÒN 2
             if (canPerformHeavyCombo)
@@ -720,7 +741,11 @@ public class PlayerController : MonoBehaviour
             }
 
             // D. XẢ SỚM (Nếu thả tay trước khi đầy -> Chém lực yếu hơn)
-            if (Input.GetMouseButtonUp(1))
+            // Logic: Nếu NHẢ chuột phải VÀ KHÔNG giữ nút mobile -> Thì tính là xả
+            bool isHoldingMouse = Input.GetMouseButton(1);
+            bool isHoldingMobile = (MobileInputManager.Instance != null && MobileInputManager.Instance.heavyAttackPressed);
+
+            if (!isHoldingMouse && !isHoldingMobile)
             {
                 ReleaseHeavyAttack();
                 return;
@@ -742,7 +767,10 @@ public class PlayerController : MonoBehaviour
 
         // --- XỬ LÝ CHẠY NHANH (SPRINT) ---
         // Chỉ chạy nhanh được khi: Đang chạm đất VÀ Không ngồi VÀ Không trượt tường
-        if (Input.GetKey(KeyCode.LeftShift) && isGrounded && !isCrouching && !isWallSliding)
+        bool mobileSprint = (MobileInputManager.Instance != null && MobileInputManager.Instance.isSprinting);
+        
+        // Chạy nếu: Giữ Shift HOẶC Mobile bật chế độ chạy
+        if ((Input.GetKey(KeyCode.LeftShift) || mobileSprint) && isGrounded && !isCrouching && !isWallSliding)
         {
             isSprinting = true;
             anim.SetBool("IsSprinting", true); // (Tạo Bool này trong Animator nếu muốn)
@@ -757,8 +785,9 @@ public class PlayerController : MonoBehaviour
 
         // 4. XỬ LÝ NGỒI (CROUCH) & ĐI KHOM
         bool isMovingInput = Mathf.Abs(Input.GetAxisRaw("Horizontal")) > 0.1f;
+        bool mobileCrouch = (MobileInputManager.Instance != null && MobileInputManager.Instance.isCrouching);
 
-        if (Input.GetKey(KeyCode.S) && isGrounded)
+        if ((Input.GetKey(KeyCode.S) || mobileCrouch) && isGrounded)
         {
             isCrouching = true;
             isSprinting = false; //Nếu ngồi thì tắt chạy nhanh ngay
@@ -779,7 +808,9 @@ public class PlayerController : MonoBehaviour
         }
 
         // 5. CÁC KỸ NĂNG (Roll, Slide, Attack)
-        if (Input.GetKeyDown(KeyCode.LeftAlt) && isGrounded && !isCrouching)
+        bool mobileRoll = (MobileInputManager.Instance != null && MobileInputManager.Instance.dashPressed);
+
+        if ((Input.GetKeyDown(KeyCode.LeftAlt) || mobileRoll) && isGrounded && !isCrouching)
         {
             // Cho phép Roll nếu: (Bình thường) HOẶC (Đang đứng dậy)
             if ((!isKnockedDown || isGettingUp) && currentStamina >= rollStaminaCost)
@@ -809,8 +840,9 @@ public class PlayerController : MonoBehaviour
         // --- CHẶN INPUT NẾU BỊ KNOCKDOWN ---
         // (Lúc này nếu đang GettingUp mà không Roll thì vẫn bị chặn di chuyển)
         if (isKnockedDown) return;
+        bool mobileSlide = (MobileInputManager.Instance != null && MobileInputManager.Instance.slidePressed);
 
-        if (Input.GetKeyDown(KeyCode.C) && isGrounded && !isCrouching)
+        if ((Input.GetKeyDown(KeyCode.C) || mobileSlide) && isGrounded && !isCrouching)
         {
             // [MỚI] Kiểm tra đủ Stamina KHÔNG? VÀ đủ Mana KHÔNG?
             bool enoughStamina = currentStamina >= 10f; // (Giả sử trượt tốn 10 Stamina)
@@ -828,16 +860,26 @@ public class PlayerController : MonoBehaviour
         }
 
         // 5. XỬ LÝ TẤN CÔNG (Ground & Air)
-        if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.J)) && !isMenuOpen)
+        bool mobileAttack = (MobileInputManager.Instance != null && MobileInputManager.Instance.attackPressed);
+
+        // --- [SỬA] TÁCH BIỆT LOGIC PC VÀ MOBILE ---
+        bool wantToAttack = false;
+
+#if UNITY_ANDROID || UNITY_IOS
+        // TRÊN ĐIỆN THOẠI: Chỉ nhận lệnh từ nút ảo (MobileAttack)
+        // Tuyệt đối KHÔNG nghe lệnh từ chuột hay bàn phím
+        wantToAttack = mobileAttack;
+#else
+        // TRÊN PC: Nhận cả Chuột trái, Phím J, và nút ảo (để test)
+        wantToAttack = Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.J) || mobileAttack;
+#endif
+
+        // Kiểm tra điều kiện chung
+        if (wantToAttack && !isMenuOpen)
         {
-            // [FIX QUAN TRỌNG] THÊM ĐIỀU KIỆN CHẶT CHẼ HƠN CHO GROUND ATTACK
-            // Coi là đánh dưới đất khi: 
-            // 1. Chạm đất (isGrounded)
-            // 2. VÀ KHÔNG đang thực hiện hành động nhảy (!isJumpingAction)
-            // 3. VÀ Vận tốc Y không quá lớn (để tránh trường hợp vừa rời đất)
+            // [FIX QUAN TRỌNG] Logic xác định đánh dưới đất hay trên trời
             bool isReallyGrounded = isGrounded && !isJumpingAction && rb.linearVelocity.y <= 0.1f;
 
-            // A. NẾU THỰC SỰ Ở DƯỚI ĐẤT -> Đánh Combo bình thường
             if (isReallyGrounded)
             {
                 if (Time.time > nextAttackAllowTime && !isAirAttacking) 
@@ -846,11 +888,8 @@ public class PlayerController : MonoBehaviour
                     return; 
                 }
             }
-            // B. CÁC TRƯỜNG HỢP CÒN LẠI -> Ưu tiên Giáng Kiếm (Air Attack)
-            // (Bao gồm: Đang ở trên trời, HOẶC vừa mới bấm nhảy xong)
             else
             {
-                // Điều kiện: Chưa đánh, không leo trèo, không trượt tường
                 if (!isAirAttacking && !isWallSliding && !isHanging && !isClimbing)
                 {
                     PerformAirAttack(); 
@@ -876,13 +915,20 @@ public class PlayerController : MonoBehaviour
 
         // 4. [SỬA] Xử lý Di Chuyển (Dùng isAttacking)
         // Chặn di chuyển ngay lập tức khi bấm nút, không chờ animation chạy
+        // 4. [SỬA] Xử lý Di Chuyển & Animation
         if (isAttacking || isUsingItem || isHurt) 
         {
             horizontalInput = 0; 
         }
         else
         {
-            horizontalInput = Input.GetAxisRaw("Horizontal"); 
+            // [FIX LỖI CS0103] Khai báo lại biến ngay tại đây để dùng
+            float kX = Input.GetAxisRaw("Horizontal");
+            float mX = (MobileInputManager.Instance != null) ? MobileInputManager.Instance.moveX : 0;
+            
+            // Cộng dồn và kẹp giá trị
+            horizontalInput = kX + mX;
+            horizontalInput = Mathf.Clamp(horizontalInput, -1f, 1f); 
         }
 
         // [FIX ANIMATION] Ngăn chặn Run chen vào Jump khi đang Wall Jump
@@ -942,7 +988,8 @@ public class PlayerController : MonoBehaviour
         // 7. NHẢY (JUMP)
         // Không nhảy được khi: Đang ngồi, Đang đánh, hoặc Đang trượt tường (đã xử lý ở trên)
         // Thêm điều kiện: currentStamina >= jumpStaminaCost
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !isAttacking && !isCrouching && currentStamina >= jumpStaminaCost)
+
+        if ((Input.GetKeyDown(KeyCode.Space) || mobileJump) && isGrounded && !isAttacking && !isCrouching && currentStamina >= jumpStaminaCost)
         {
             // Reset lại trọng lực ngay lập tức trước khi nhảy
             rb.gravityScale = gravityScaleGoc;
@@ -959,6 +1006,15 @@ public class PlayerController : MonoBehaviour
                 // Thêm điều kiện: Nếu đang Air Attack thì không đánh thường nữa
                 if (!isAirAttacking && Time.time > nextAttackAllowTime) { Attack(); return; }
             }
+        }
+
+        // --- [MỚI] MOBILE USE ITEM (Nút Health riêng) ---
+        bool mobileUseItem = (MobileInputManager.Instance != null && MobileInputManager.Instance.useItemPressed);
+        if (mobileUseItem && isGrounded && !isRolling && !isSliding && !isAttackStepping && !isUsingItem && !isElevatorBlockingInput)
+        {
+            StartCoroutine(PerformUseItem());
+            // Không return ở đây để các logic E bên dưới vẫn chạy nếu cần, 
+            // nhưng PerformUseItem đã set cờ isUsingItem nên sẽ an toàn.
         }
 
         // 8. USE ITEM (Phím E)
@@ -1066,7 +1122,9 @@ public class PlayerController : MonoBehaviour
         // Hoặc phím mũi tên xuống (Down Arrow) giống Dark Souls
         if (!isMenuOpen) 
         {
-            if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.R))
+            bool mobileSwitch = (MobileInputManager.Instance != null && MobileInputManager.Instance.switchItemPressed);
+
+            if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.R) || mobileSwitch)
             {
                 if (consumableManager != null) consumableManager.SwitchItem();
             }
@@ -1426,21 +1484,26 @@ public class PlayerController : MonoBehaviour
     {
         if (isHanging)
         {
-            // [FIX QUAN TRỌNG] Ép cứng vận tốc bằng 0 ở mọi khung hình
-            // Giúp nhân vật dính chặt vào tường, không bị trôi
             rb.linearVelocity = Vector2.zero; 
             rb.angularVelocity = 0f;
 
-            float xInput = Input.GetAxisRaw("Horizontal");
-            bool pullingAway = (xInput * wallDir < -0.1f);
+            // [MỚI] Lấy Input Mobile ngay trong hàm này
+            bool mJump = (MobileInputManager.Instance != null && MobileInputManager.Instance.jumpPressed);
+            // [MỚI] Lấy Input hướng (cho việc kéo cần ra xa tường)
+            float mX = (MobileInputManager.Instance != null) ? MobileInputManager.Instance.moveX : 0;
+            float totalX = Input.GetAxisRaw("Horizontal") + mX;
+
+            // Logic check kéo ra xa (Pulling Away)
+            bool pullingAway = (totalX * wallDir < -0.1f);
             
             if (pullingAway)
             {
                 anim.SetBool("IsWallJumpPrep", true); 
                 ForceFace(-wallDir);
                 
-                // Logic nhảy ra
-                if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.W)) 
+                // 1. LOGIC NHẢY RA XA (Jump Off)
+                // Thêm || mJump
+                if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.W) || mJump) 
                 { 
                     PerformWallJump(); 
                     return; 
@@ -1452,8 +1515,10 @@ public class PlayerController : MonoBehaviour
                 ForceFace(wallDir); 
             }
 
-            // Logic leo lên
-            if ((Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.Space)) && !pullingAway)
+            // 2. LOGIC LEO LÊN (Climb Up)
+            // Thêm || mJump
+            // Lưu ý: Chỉ leo lên khi KHÔNG kéo cần ra xa (!pullingAway)
+            if ((Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.Space) || mJump) && !pullingAway)
             {
                 if (currentStamina >= ledgeClimbStaminaCost) 
                 { 
@@ -1463,8 +1528,12 @@ public class PlayerController : MonoBehaviour
                 }
             }
 
-            // Logic thả tay
-            if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)) 
+            // 3. LOGIC THẢ TAY (Drop)
+            // Mobile: Kéo cần xuống (Btn_Down) -> Tương đương totalX hoặc logic riêng
+            // Tạm thời nếu muốn mobile thả tay, bạn có thể gán nút "Ngồi" làm nút thả tay
+            bool mCrouch = (MobileInputManager.Instance != null && MobileInputManager.Instance.isCrouching);
+            
+            if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow) || mCrouch) 
             {
                 CancelHanging();
             }
